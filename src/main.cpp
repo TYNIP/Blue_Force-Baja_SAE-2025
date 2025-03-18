@@ -1,59 +1,65 @@
-#include <Arduino.h>
+#include <SPI.h>
 #include <LoRa.h>
 
-#define NSS 18   // Pin NSS del LoRa
-#define RST 14   // Pin Reset del LoRa
-#define DIO0 26  // Pin DIO0 del LoRa
+// Módulo LoRa (SX1278)
+#define NSS 5    
+#define RST 14   
+#define DIO0 26  
 
 #ifdef TRANSMITTER
-    #define BUTTON_PIN 12  // GPIO donde está conectado el botón
-    int counter = 0;
+  #define POT_PIN 34  
 #endif
 
 void setup() {
-    Serial.begin(115200);
+  Serial.begin(115200);
+  while (!Serial);  
 
-    // Configurar LoRa
-    LoRa.setPins(NSS, RST, DIO0);
-    if (!LoRa.begin(915E6)) {  // 915 MHz (México)
-        Serial.println("Error al iniciar LoRa");
-        while (1);
-    }
+  SPI.begin();
 
-    #ifdef TRANSMITTER
-        Serial.println("Modo TRANSMISOR");
-        pinMode(BUTTON_PIN, INPUT_PULLUP);
-    #endif
+  LoRa.setPins(NSS, RST, DIO0);
 
-    #ifdef RECEIVER
-        Serial.println("Modo RECEPTOR");
-    #endif
+  Serial.println("Iniciando LoRa...");
+  if (!LoRa.begin(915E6)) {  
+    Serial.println("Error al iniciar LoRa");
+    while (1); 
+  }
+
+  #ifdef TRANSMITTER
+    Serial.println("Modo TRANSMISOR");
+  #endif
+
+  #ifdef RECEIVER
+    Serial.println("Modo RECEPTOR");
+  #endif
 }
 
 void loop() {
-    #ifdef TRANSMITTER
-        if (digitalRead(BUTTON_PIN) == LOW) {
-            delay(200);  // Evitar rebotes
-            counter++;
+  #ifdef TRANSMITTER
+    int potValue = analogRead(POT_PIN);
 
-            LoRa.beginPacket();
-            LoRa.print("Contador: ");
-            LoRa.print(counter);
-            LoRa.endPacket();
+    LoRa.beginPacket();
+    LoRa.write(potValue);  
+    LoRa.endPacket();
 
-            Serial.print("Mensaje enviado: ");
-            Serial.println(counter);
-        }
-    #endif
+    Serial.print("Valor del potenciómetro enviado: ");
+    Serial.println(potValue);
 
-    #ifdef RECEIVER
-        int packetSize = LoRa.parsePacket();
-        if (packetSize) {
-            Serial.print("Mensaje recibido: ");
-            while (LoRa.available()) {
-                Serial.print((char)LoRa.read());
-            }
-            Serial.println();
-        }
-    #endif
+    delay(1000);
+  #endif
+
+  #ifdef RECEIVER
+    int packetSize = LoRa.parsePacket();
+    Serial.println(packetSize);
+    if (packetSize) {
+      String received = "";
+      while (LoRa.available()) {
+        received += (char)LoRa.read();
+      }
+      Serial.print("Valor recibido: ");
+      Serial.println(received);
+    }
+
+    Serial.println("Receptor - Ayuda no jala :c");
+    delay(1000);
+  #endif
 }
